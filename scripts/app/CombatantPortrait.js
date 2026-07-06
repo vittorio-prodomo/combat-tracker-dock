@@ -203,7 +203,68 @@ export class CombatantPortrait {
         const ib = this.element.querySelector(".image-border");
         if(ib) ib.style.backgroundImage = `url("${game.settings.get(MODULE_ID, "portraitImageBorder")}")`;
         this.activateListeners();
+        if (game.user.isGM) this._activateInitiativeEditor();
         this.resolve(true);
+    }
+
+    _activateInitiativeEditor() {
+        const container = this.element.querySelector(".portrait-initiative");
+        if (!container) return;
+        const textEl = container.querySelector(".portrait-initiative-text");
+        if (!textEl) return;
+        container.style.cursor = "pointer";
+        container.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (container.querySelector("input.portrait-initiative-input")) return;
+            const current = this.combatant.initiative;
+            const input = document.createElement("input");
+            input.type = "number";
+            input.step = "any";
+            input.value = current ?? "";
+            input.classList.add("portrait-initiative-input");
+            Object.assign(input.style, {
+                width: "2.5em",
+                textAlign: "center",
+                font: "inherit",
+                color: "inherit",
+                background: "rgba(0, 0, 0, 0.5)",
+                border: "1px solid var(--color-border-light-1, #999)",
+                borderRadius: "3px",
+                padding: "0",
+            });
+            textEl.style.display = "none";
+            container.appendChild(input);
+            input.focus();
+            input.select();
+            let done = false;
+            const restore = () => {
+                if (input.isConnected) input.remove();
+                textEl.style.display = "";
+            };
+            const commit = async () => {
+                if (done) return;
+                done = true;
+                const raw = input.value.trim();
+                const value = Number(raw);
+                if (raw === "" || Number.isNaN(value) || value === current) return restore();
+                await this.combatant.update({ initiative: value });
+                restore(); // updateCombatant rebuilds this portrait; this is a safety net
+            };
+            input.addEventListener("keydown", (event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    commit();
+                } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    done = true;
+                    restore();
+                }
+            });
+            input.addEventListener("click", (event) => event.stopPropagation());
+            input.addEventListener("blur", () => commit());
+        });
     }
 
     getResource(resource = null, primary = false) {
