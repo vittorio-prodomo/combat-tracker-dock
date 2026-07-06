@@ -252,7 +252,8 @@ export class CombatantPortrait {
                 const raw = input.value.trim();
                 const value = Number(raw);
                 if (raw === "" || Number.isNaN(value) || value === current) return restore();
-                await this.combatant.update({ initiative: value });
+                // cctImmediateReorder: reorder now (a manual edit has no dice to wait for).
+                await this.combatant.update({ initiative: value }, { cctImmediateReorder: true });
                 restore(); // updateCombatant rebuilds this portrait; this is a safety net
             };
             input.addEventListener("keydown", (event) => {

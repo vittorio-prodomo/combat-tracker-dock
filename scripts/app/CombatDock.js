@@ -2,6 +2,13 @@ import { MODULE_ID } from "../main.js";
 import { AddEvent } from "./AddEvent.js";
 import { HandlebarsApplication, mergeClone, mergeObject } from "../lib/utils.js";
 
+// Hold the carousel reorder until the 3D dice settle (Dice So Nice), so a "Roll All"
+// doesn't spoil the animated initiative results. Same pattern as dnd5e-alert-initiative-swap:
+// a start/complete animation counter, a debounce that coalesces the batch, and a MAX_WAIT
+// guard against a leaked counter (or DSN being off / a manual initiative entry).
+const INIT_REORDER_SETTLE_MS = 500;
+const INIT_REORDER_MAX_WAIT_MS = 8000;
+
 export class CombatDock extends HandlebarsApplication {
     constructor(combat) {
         super();
@@ -18,6 +25,9 @@ export class CombatDock extends HandlebarsApplication {
         this.setHooks();
         window.addEventListener("resize", this.autosize.bind(this));
         this._combatTrackerRefreshed = false;
+        this._diceAnimations = 0;
+        this._initReorderSince = 0;
+        this._initReorderTimer = null;
     }
 
     static get DEFAULT_OPTIONS() {
@@ -115,6 +125,17 @@ export class CombatDock extends HandlebarsApplication {
             {
                 hook: "hoverToken",
                 fn: this._onHoverToken.bind(this),
+            },
+            {
+                hook: "diceSoNiceRollStart",
+                fn: () => { this._diceAnimations++; },
+            },
+            {
+                hook: "diceSoNiceRollComplete",
+                fn: () => {
+                    this._diceAnimations = Math.max(0, this._diceAnimations - 1);
+                    if (this._initReorderTimer || this._initReorderSince) this._scheduleInitReorderFlush();
+                },
             },
         ];
         for (let hook of this.hooks) {
@@ -252,15 +273,43 @@ export class CombatDock extends HandlebarsApplication {
         document.documentElement.style.setProperty("--combatant-portrait-size", portraitSize / (this.isVertical ? 1 : 1.2) + "px");
     }
 
-    updateCombatant(combatant, updates = {}) {
+    updateCombatant(combatant, updates = {}, options = {}) {
         if ("initiative" in updates) {
-            this.setupCombatants();
+            // A manual edit (the GM initiative editor) requests an immediate reorder; rolls
+            // omit the flag and let the reorder defer until the 3D dice settle.
+            if (options.cctImmediateReorder) this.setupCombatants();
+            else this._scheduleInitiativeReorder();
             return;
         }
         const portrait = this.portraits.find((p) => p.combatant === combatant);
         if (portrait) portrait.renderInner();
         const combatantRevived = updates.defeated === false;
         this.autosize(combatantRevived);
+    }
+
+    // An initiative change reorders the carousel via setupCombatants(). When Dice So Nice is
+    // active, defer that reorder until the 3D dice finish so a "Roll All" doesn't spoil the
+    // animated results; without DSN there are no dice to wait for, so reorder immediately.
+    _scheduleInitiativeReorder() {
+        if (!game.dice3d) return this.setupCombatants();
+        if (!this._initReorderSince) this._initReorderSince = Date.now();
+        this._scheduleInitReorderFlush();
+    }
+
+    _scheduleInitReorderFlush() {
+        if (this._initReorderTimer) clearTimeout(this._initReorderTimer);
+        this._initReorderTimer = setTimeout(() => this._flushInitiativeReorder(), INIT_REORDER_SETTLE_MS);
+    }
+
+    _flushInitiativeReorder() {
+        this._initReorderTimer = null;
+        // Dice still animating (within the guard window) → wait for the next completion.
+        if (this._diceAnimations > 0 && Date.now() - this._initReorderSince < INIT_REORDER_MAX_WAIT_MS) {
+            this._scheduleInitReorderFlush();
+            return;
+        }
+        this._initReorderSince = 0;
+        if (!this._closed && this.element) this.setupCombatants();
     }
 
     updateCombatants() {
@@ -585,6 +634,7 @@ export class CombatDock extends HandlebarsApplication {
 
     async close(...args) {
         this.removeHooks();
+        if (this._initReorderTimer) clearTimeout(this._initReorderTimer);
         window.removeEventListener("resize", this.autosize.bind(this));
         if (this.element) this.element.remove();
         this._closed = true;
