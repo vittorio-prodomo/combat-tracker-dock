@@ -227,12 +227,20 @@ export class CombatantPortrait {
             input.step = "any";
             input.value = current ?? "";
             input.classList.add("portrait-initiative-input");
+            // The badge sits in an opacity:0.75 container over portrait art, so a translucent
+            // field is unreadable. Make the container fully opaque while editing and give the
+            // input a solid background that contrasts the (inherited) text colour: black on
+            // light text, white on dark text.
+            container.style.opacity = "1";
+            const textColor = getComputedStyle(container).color;
+            const rgb = (textColor.match(/\d+/g) || [255, 255, 255]).map(Number);
+            const luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
             Object.assign(input.style, {
                 width: "2.5em",
                 textAlign: "center",
                 font: "inherit",
-                color: "inherit",
-                background: "rgba(0, 0, 0, 0.5)",
+                color: textColor,
+                background: luminance > 140 ? "#000" : "#fff",
                 border: "1px solid var(--color-border-light-1, #999)",
                 borderRadius: "3px",
                 padding: "0",
@@ -245,6 +253,7 @@ export class CombatantPortrait {
             const restore = () => {
                 if (input.isConnected) input.remove();
                 textEl.style.display = "";
+                container.style.opacity = "";
             };
             const commit = async () => {
                 if (done) return;
