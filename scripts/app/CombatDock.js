@@ -317,6 +317,9 @@ export class CombatDock extends HandlebarsApplication {
         setDisplay("start-combat", !started);
         setDisplay("end-combat", started);
         setDisplay("delete-encounter", !started);
+        for (const action of ["previous-turn", "next-turn", "previous-round", "next-round"]) {
+            setDisplay(action, started);
+        }
     }
 
     appendHtml(){
