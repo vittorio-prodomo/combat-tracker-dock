@@ -58,7 +58,7 @@
         }
     ],
     "scripts": [],
-    "esmodules": ["index.js"],
+    "esmodules": ["dev-loader.mjs"],
     "styles": ["styles/module.css"],
     "packs": [],
     "url": "https://github.com/theripper93/combat-tracker-dock",
