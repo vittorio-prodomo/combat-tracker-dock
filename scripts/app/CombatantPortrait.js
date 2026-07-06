@@ -213,6 +213,10 @@ export class CombatantPortrait {
         const textEl = container.querySelector(".portrait-initiative-text");
         if (!textEl) return;
         container.style.cursor = "pointer";
+        // The badge is `pointer-events: none` in CSS (clicks fall through to the
+        // portrait wrapper's pan handler); re-enable it here so the GM editor
+        // actually receives clicks. Inline + GM-only, so players keep pass-through.
+        container.style.pointerEvents = "all";
         container.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
