@@ -8,6 +8,10 @@
     "contextMenu": {
       "setAsCurrent": "Imposta come combattente attuale"
     },
+    "controls": {
+      "deleteEncounter": "Elimina incontro",
+      "deleteEncounterConfirm": "Sei sicuro di voler eliminare questo incontro?"
+    },
     "combatConfig": {
       "portraitResource": {
         "label": "Barra dei ritratti",

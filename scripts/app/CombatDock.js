@@ -308,11 +308,15 @@ export class CombatDock extends HandlebarsApplication {
     }
 
     updateStartEndButtons() {
-        if(!this.element) return;
-        const startButton = this.element.querySelector(`[data-action="start-combat"]`);
-        const endButton = this.element.querySelector(`[data-action="end-combat"]`);
-        startButton.style.display = this.combat.started ? "none" : "";
-        endButton.style.display = this.combat.started ? "" : "none";
+        if (!this.element) return;
+        const started = this.combat.started;
+        const setDisplay = (action, show) => {
+            const btn = this.element.querySelector(`[data-action="${action}"]`);
+            if (btn) btn.style.display = show ? "" : "none";
+        };
+        setDisplay("start-combat", !started);
+        setDisplay("end-combat", started);
+        setDisplay("delete-encounter", !started);
     }
 
     appendHtml(){
@@ -327,7 +331,7 @@ export class CombatDock extends HandlebarsApplication {
         this.setupCombatants();
         this.appendHtml();
         this.element.querySelectorAll(".buttons-container button").forEach((i) => {
-            i.addEventListener("click", (e) => {
+            i.addEventListener("click", async (e) => {
                 const action = e.currentTarget.dataset.action;
                 switch (action) {
                     case "previous-turn":
@@ -363,11 +367,21 @@ export class CombatDock extends HandlebarsApplication {
                     case "add-event":
                         new AddEvent(this.combat).render(true);
                         break;
+                    case "delete-encounter": {
+                        const confirmed = await foundry.applications.api.DialogV2.confirm({
+                            window: { title: game.i18n.localize(`${MODULE_ID}.controls.deleteEncounter`) },
+                            content: `<p>${game.i18n.localize(`${MODULE_ID}.controls.deleteEncounterConfirm`)}</p>`,
+                            defaultYes: false,
+                        });
+                        if (confirmed) await this.combat.delete();
+                        break;
+                    }
                 }
             });
         });
         this.autosize();
         this.setControlsOrder();
+        this.updateStartEndButtons();
         new foundry.applications.ux.ContextMenu(
             this.element.querySelector("#combatants"),
             ".combatant-portrait",
