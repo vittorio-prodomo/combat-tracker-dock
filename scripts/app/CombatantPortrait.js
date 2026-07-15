@@ -33,6 +33,15 @@ export class CombatantPortrait {
 
     get name() {
         if (this.combatant.isOwner) return this.combatant.name;
+        // npc-name-veil (T28c): a non-GM viewer sees an unidentified NPC's placeholder here.
+        // getDisplayName returns the real name for PCs / identified NPCs / when the module is
+        // disabled, so a difference from the token's real name means "unidentified NPC".
+        const veil = game.modules.get("npc-name-veil")?.api;
+        if (veil?.getDisplayName && !game.user.isGM) {
+            const tokenDoc = this.combatant.token;
+            const shown = tokenDoc ? veil.getDisplayName(tokenDoc, { omniscient: false }) : null;
+            if (shown && shown !== tokenDoc.name) return shown;
+        }
         const displayName = game.settings.get(MODULE_ID, "displayName");
         if (displayName === "owner") return this.combatant.isOwner ? this.combatant.name : "???";
         if (displayName === "default") return this.combatant.name;
