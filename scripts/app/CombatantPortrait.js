@@ -1,5 +1,5 @@
 import { MODULE_ID } from "../main.js";
-import { generateDescription, getInitiativeDisplay, getSystemIcons } from "../systems.js";
+import { generateDescription, getACDisplay, getInitiativeDisplay, getSystemIcons } from "../systems.js";
 
 export class CombatantPortrait {
     constructor(combatant) {
@@ -392,6 +392,7 @@ export class CombatantPortrait {
         const initiativeData = this.getInitiativeDisplay();
         initiativeData.isIconImg = initiativeData.icon.includes(".");
         initiativeData.isRollIconImg = initiativeData.rollIcon.includes(".");
+        const acData = this.getACDisplay();
         const turn = {
             id: combatant.id,
             name: this.name,
@@ -412,6 +413,9 @@ export class CombatantPortrait {
             showInitiative: game.settings.get(MODULE_ID, "showInitiativeOnPortrait"),
             isInitiativeNaN: combatant.initiative === null || combatant.initiative === undefined,
             initiativeData: initiativeData,
+            showAC: game.settings.get(MODULE_ID, "showACOnPortrait"),
+            hasAC: acData !== null,
+            ac: acData,
             resource: resource,
             resource2: resource2,
             portraitResource: portraitResource,
@@ -456,6 +460,17 @@ export class CombatantPortrait {
             turn.initiative = "?";
             turn.initiativeData.value = "?";
         }
+        // T36: enemy-AC disclosure follows dnd5e's own attackRollVisibility world setting
+        // (the same source that decides whether players see target AC in attack cards):
+        // only "all" reveals the number to a non-owner non-GM; GM and owners always see it.
+        // Non-dnd5e systems have no such setting, so non-owners get "?" there.
+        if (turn.ac && !game.user.isGM && !combatant.actor?.isOwner) {
+            let visibility = "none";
+            if (game.system.id === "dnd5e") {
+                try { visibility = game.settings.get("dnd5e", "attackRollVisibility"); } catch (e) {}
+            }
+            if (visibility !== "all") turn.ac = { ...turn.ac, value: "?" };
+        }
         return turn;
     }
 
@@ -496,6 +511,10 @@ export class CombatantPortrait {
 
     getInitiativeDisplay() {
         return getInitiativeDisplay(this.combatant);
+    }
+
+    getACDisplay() {
+        return getACDisplay(this.combatant);
     }
 
     getBorderColor(tokenDocument) {

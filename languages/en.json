@@ -117,6 +117,10 @@
                 "name": "Show Initiative on Portrait",
                 "hint": "Show the initiative value in the top left corner of the portrait. You can always see the initiative in the Tooltip!"
             },
+            "showACOnPortrait": {
+                "name": "Show AC on Portrait",
+                "hint": "Show the armor class in a shield badge below the initiative badge. For non-owners, the dnd5e 'Attack Roll Visibility' setting decides whether the real value or '?' is shown."
+            },
             "portraitImageBorder": {
                 "name": "Player Border",
                 "hint": "Special border that will be shown for player characters. Leave blank to disable. If you wish to make a custom image, it's suggested you use the default one as reference for correct sizing."

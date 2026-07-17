@@ -929,6 +929,27 @@ export function getInitiativeDisplay(combatant) {
 }
 
 /**
+ * Retrieves the armor class to show in the portrait AC badge (T36).
+ * The AC path comes from the system's default tracked-attribute config: the first
+ * plain-shield entry is that system's AC-like defence (dnd5e "attributes.ac.value",
+ * dnd4e "defences.ac.value", ...). Returns null when the system has no such entry
+ * or the actor doesn't carry the attribute (groups, vehicles without AC), which
+ * simply hides the badge.
+ *
+ * @param {Combatant} combatant - The combatant.
+ * @returns {{value: number}|null} The AC value, or null to hide the badge.
+ */
+
+export function getACDisplay(combatant) {
+    const actor = combatant?.actor;
+    if (!actor) return null;
+    const entry = (defaultAttributesConfig()[game.system.id] ?? []).find((a) => a.icon?.endsWith("fa-shield"));
+    if (!entry) return null;
+    const value = foundry.utils.getProperty(actor.system, entry.attr);
+    return Number.isNumeric(value) ? { value } : null;
+}
+
+/**
  * Retrieves system icons for the given actor based on the game system.
  * These icons can be shown both at the bottom of the tooltip and
  * in the portrait under the tracked resource. If a callback is provided, it will be called on click.

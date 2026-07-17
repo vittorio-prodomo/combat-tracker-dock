@@ -127,6 +127,10 @@ export class CombatDock extends HandlebarsApplication {
                 fn: this._onHoverToken.bind(this),
             },
             {
+                hook: "updateActor",
+                fn: this._onUpdateActor.bind(this),
+            },
+            {
                 hook: "diceSoNiceRollStart",
                 fn: () => { this._diceAnimations++; },
             },
@@ -455,6 +459,15 @@ export class CombatDock extends HandlebarsApplication {
     _onRenderCombatTracker() {
         this.portraits.forEach((p) => p.renderInner());
         this.updateStartEndButtons();
+    }
+
+    // T36: the AC badge (and the bars/text) read live actor data, but no combat hook
+    // fires on a plain actor update (sheet edit, AC override), so a mid-combat AC
+    // change could lag until the next combat update. Re-render the affected portrait.
+    _onUpdateActor(actor, changes) {
+        if (!foundry.utils.hasProperty(changes, "system")) return;
+        const portrait = this.portraits.find((p) => p.actor === actor);
+        if (portrait) portrait.renderInner();
     }
 
     _onCombatTurn(combat, updates, update) {

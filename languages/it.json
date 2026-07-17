@@ -117,6 +117,10 @@
         "name": "Mostra Iniziativa su Ritratto",
         "hint": "Mostra il valore dell'iniziativa nell'angolo in alto a sinistra del ritratto. \nPuoi sempre vedere l'iniziativa nel Tooltip!"
       },
+      "showACOnPortrait": {
+        "name": "Mostra CA su Ritratto",
+        "hint": "Mostra la classe armatura in un distintivo a scudo sotto quello dell'iniziativa. \nPer i non proprietari, l'impostazione dnd5e 'Visibilità del Tiro di Attacco' decide se mostrare il valore reale o '?'."
+      },
       "portraitImageBorder": {
         "name": "Bordo del giocatore",
         "hint": "Bordo speciale che verrà mostrato per i personaggi dei giocatori. \nLascia vuoto per disabilitare. \nSe desideri creare un'immagine personalizzata, ti suggeriamo di utilizzare quella predefinita come riferimento per il corretto dimensionamento."

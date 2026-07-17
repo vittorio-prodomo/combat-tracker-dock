@@ -305,6 +305,16 @@ export function registerSettings() {
         onChange: () => ui.combatDock?.refresh(),
     });
 
+    game.settings.register(MODULE_ID, "showACOnPortrait", {
+        name: "combat-tracker-dock.settings.showACOnPortrait.name",
+        hint: "combat-tracker-dock.settings.showACOnPortrait.hint",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: true,
+        onChange: () => ui.combatDock?.refresh(),
+    });
+
     game.settings.register(MODULE_ID, "portraitImage", {
         name: "combat-tracker-dock.settings.portraitImage.name",
         hint: "combat-tracker-dock.settings.portraitImage.hint",

@@ -32,6 +32,12 @@
             {{else}}class="{{initiativeData.icon}}" {{/if}}></i>
         <span class="portrait-initiative-text">{{initiativeData.value}}</span>
     </div>
+    {{#if hasAC}}
+    <div class="portrait-ac" style="order: {{barsOrder.init}};margin-left: calc(var(--combatant-portrait-size) * 0.05 * {{barsOrder.initBars}}); {{#unless showAC}}display: none;{{/unless}}">
+        <i class="fa-solid fa-shield"></i>
+        <span class="portrait-ac-text">{{ac.value}}</span>
+    </div>
+    {{/if}}
         <ul class="effects-container" style="order: {{barsOrder.effects}};{{#unless hasEffects}}display:none;{{/unless}}" >
         {{#each effects as |effect|}}
         <li class="portrait-effect" data-uuid="{{effect.uuid}}" style="background-image: url('{{effect.img}}');">
