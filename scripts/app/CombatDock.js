@@ -28,6 +28,9 @@ export class CombatDock extends HandlebarsApplication {
         this._diceAnimations = 0;
         this._initReorderSince = 0;
         this._initReorderTimer = null;
+        // T40: combatant ids whose freshly-rolled initiative must not display yet — the
+        // badge shows a bare die icon until the deferred reorder lands (one coherent reveal).
+        this._pendingInitiativeReveal = new Set();
     }
 
     static get DEFAULT_OPTIONS() {
@@ -281,8 +284,21 @@ export class CombatDock extends HandlebarsApplication {
         if ("initiative" in updates) {
             // A manual edit (the GM initiative editor) requests an immediate reorder; rolls
             // omit the flag and let the reorder defer until the 3D dice settle.
-            if (options.cctImmediateReorder) this.setupCombatants();
-            else this._scheduleInitiativeReorder();
+            if (options.cctImmediateReorder) {
+                this._pendingInitiativeReveal.delete(combatant.id);
+                this.setupCombatants();
+            } else {
+                // T40: while the reorder waits for the dice, the badge must not show the
+                // rolled value either (nor a stale one on a reroll) — mark the combatant
+                // pending and repaint its portrait now so only the bare die icon shows.
+                // Without DSN _scheduleInitiativeReorder reorders immediately; don't mark.
+                if (game.dice3d) {
+                    this._pendingInitiativeReveal.add(combatant.id);
+                    const portrait = this.portraits.find((p) => p.combatant === combatant);
+                    if (portrait) portrait.renderInner();
+                }
+                this._scheduleInitiativeReorder();
+            }
             return;
         }
         const portrait = this.portraits.find((p) => p.combatant === combatant);
@@ -313,6 +329,9 @@ export class CombatDock extends HandlebarsApplication {
             return;
         }
         this._initReorderSince = 0;
+        // T40: reveal the deferred initiative numbers in the same setupCombatants() call
+        // that performs the reorder — one coherent reveal at the settle point.
+        this._pendingInitiativeReveal.clear();
         if (!this._closed && this.element) this.setupCombatants();
     }
 

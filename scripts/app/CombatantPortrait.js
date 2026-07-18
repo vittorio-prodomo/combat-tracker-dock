@@ -460,6 +460,15 @@ export class CombatantPortrait {
             turn.initiative = "?";
             turn.initiativeData.value = "?";
         }
+        // T40: while this combatant's freshly-rolled initiative waits for the 3D dice to
+        // settle (the reorder deferral in CombatDock), show the bare die icon with no
+        // number — no "?", no stale value. Placed after the hideEnemyInitiative block so
+        // pre-settle is always blank; post-reveal the pending set is empty and "?" applies
+        // as before. Covers the badge AND the tooltip (both render from this data).
+        if (ui.combatDock?._pendingInitiativeReveal?.has(combatant.id)) {
+            turn.initiative = "";
+            turn.initiativeData.value = "";
+        }
         // T36: enemy-AC disclosure follows dnd5e's own attackRollVisibility world setting
         // (the same source that decides whether players see target AC in attack cards):
         // only "all" reveals the number to a non-owner non-GM; GM and owners always see it.
