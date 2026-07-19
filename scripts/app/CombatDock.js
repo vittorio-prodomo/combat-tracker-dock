@@ -9,6 +9,18 @@ import { HandlebarsApplication, mergeClone, mergeObject } from "../lib/utils.js"
 const INIT_REORDER_SETTLE_MS = 500;
 const INIT_REORDER_MAX_WAIT_MS = 8000;
 
+// T44b: hide the Primal Companion beast's portrait from the dock (GM + players alike). The beast stays a
+// real combatant — its 'follows' initiative slot is what preserves CPR's charge rider (movementHistory) —
+// but the CPR fork auto-resolves and skips its turn, so it should never appear in the carousel. Detect it
+// structurally (a chris-premades summon carrying the Primal Companion Dodge/Strike item) so CCT needs no
+// hard dependency on the CPR module; no-ops for every other combatant, including other summons.
+const PRIMAL_BEAST_ITEM_IDS = ["primalCompanionDodge", "primalCompanionLandBeastsStrike", "primalCompanionSeaBeastsStrike", "primalCompanionSkyBeastsStrike"];
+function isPrimalCompanionBeast(combatant) {
+    const actor = combatant?.actor;
+    if (!actor?.flags?.["chris-premades"]?.summons?.control?.actor) return false;
+    return actor.items.some((i) => PRIMAL_BEAST_ITEM_IDS.includes(i.flags?.["chris-premades"]?.info?.identifier));
+}
+
 export class CombatDock extends HandlebarsApplication {
     constructor(combat) {
         super();
@@ -170,7 +182,11 @@ export class CombatDock extends HandlebarsApplication {
 
     setupCombatants() {
         this.portraits = [];
-        this.sortedCombatants.forEach((combatant) => this.portraits.push(new CONFIG.combatTrackerDock.CombatantPortrait(combatant)));
+        // T44b: the beast is left in sortedCombatants (turn-index math depends on it) but gets no portrait.
+        this.sortedCombatants.forEach((combatant) => {
+            if (isPrimalCompanionBeast(combatant)) return;
+            this.portraits.push(new CONFIG.combatTrackerDock.CombatantPortrait(combatant));
+        });
         const combatantsContainer = this.element.querySelector("#combatants");
         combatantsContainer.innerHTML = "";
         this.portraits.forEach((p) => combatantsContainer.appendChild(p.element));
