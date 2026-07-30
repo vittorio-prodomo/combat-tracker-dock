@@ -24,6 +24,14 @@ Hooks.once('init', function () {
         INTRO_ANIMATION_DELAY: 0.25,
     }
 
+    // Public API. Lazily delegates to the live dock, so a caller never has to know whether one
+    // is rendered — with no dock there is no carousel to spoil and holding is a harmless no-op.
+    const mod = game.modules.get(MODULE_ID);
+    if (mod) mod.api = {
+        holdInitiativeReveal: (combatantId, options) => ui.combatDock?.holdInitiativeReveal(combatantId, options) ?? false,
+        releaseInitiativeReveal: (combatantId) => ui.combatDock?.releaseInitiativeReveal(combatantId) ?? false,
+    };
+
     Hooks.callAll(`${MODULE_ID}-init`, CONFIG.combatTrackerDock);
 });
 

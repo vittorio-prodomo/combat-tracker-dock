@@ -43,6 +43,62 @@ export class CombatDock extends HandlebarsApplication {
         // T40: combatant ids whose freshly-rolled initiative must not display yet — the
         // badge shows a bare die icon until the deferred reorder lands (one coherent reveal).
         this._pendingInitiativeReveal = new Set();
+        // Outstanding external reveal holds: combatantId → expiry timer. See holdInitiativeReveal.
+        this._initiativeRevealHolds = new Map();
+    }
+
+    /**
+     * Hold a combatant's initiative reveal open past the dice-settle point, so an external
+     * decision can be made before the table sees the number or the new turn order (e.g. a
+     * post-roll "spend a die and add it to your Initiative?" offer, which is only a real
+     * decision while the rest of the field is still unknown).
+     *
+     * Generic on purpose: the dock never learns who is holding or why — same
+     * no-hard-dependency shape as the T44b beast-portrait check. A hold outranks the dice
+     * guard, blanks the badge immediately (including with Dice So Nice off, where the
+     * reorder would otherwise be instant), and carries its own expiry so a caller that dies
+     * mid-decision cannot strand the carousel blank forever.
+     *
+     * @param {string} combatantId
+     * @param {object} [options]
+     * @param {number} [options.timeoutMs=30000]  Safety expiry; the holder is expected to
+     *                                            release well before this.
+     * @returns {boolean} whether the hold was taken
+     */
+    holdInitiativeReveal(combatantId, { timeoutMs = 30000 } = {}) {
+        if (!combatantId) return false;
+        const existing = this._initiativeRevealHolds.get(combatantId);
+        if (existing) clearTimeout(existing);
+        this._initiativeRevealHolds.set(
+            combatantId,
+            setTimeout(() => this.releaseInitiativeReveal(combatantId), timeoutMs)
+        );
+        // Blank now: without DSN nothing marked this combatant pending, and a hold taken
+        // late (after a flush already cleared the mark) still has to withhold the number.
+        this._pendingInitiativeReveal.add(combatantId);
+        if (this._initReorderTimer) {
+            clearTimeout(this._initReorderTimer);
+            this._initReorderTimer = null;
+        }
+        const portrait = this.portraits.find((p) => p.combatant?.id === combatantId);
+        if (portrait) portrait.renderInner();
+        return true;
+    }
+
+    /** Release a hold taken by holdInitiativeReveal; the last one out triggers the reveal. */
+    releaseInitiativeReveal(combatantId) {
+        const timer = this._initiativeRevealHolds.get(combatantId);
+        if (timer === undefined) return false;
+        clearTimeout(timer);
+        this._initiativeRevealHolds.delete(combatantId);
+        if (!this._initiativeRevealHolds.size) {
+            // Restart the dice guard window: accepting the offer rolls a die of its own, and
+            // that animation should finish before the coherent reveal, exactly like the
+            // initiative dice did.
+            this._initReorderSince = Date.now();
+            this._scheduleInitReorderFlush();
+        }
+        return true;
     }
 
     static get DEFAULT_OPTIONS() {
@@ -301,6 +357,13 @@ export class CombatDock extends HandlebarsApplication {
             // A manual edit (the GM initiative editor) requests an immediate reorder; rolls
             // omit the flag and let the reorder defer until the 3D dice settle.
             if (options.cctImmediateReorder) {
+                // A manual GM edit is an explicit override: it outranks any reveal hold on
+                // that combatant (dropped without scheduling a flush — we reorder right here).
+                const held = this._initiativeRevealHolds.get(combatant.id);
+                if (held !== undefined) {
+                    clearTimeout(held);
+                    this._initiativeRevealHolds.delete(combatant.id);
+                }
                 this._pendingInitiativeReveal.delete(combatant.id);
                 this.setupCombatants();
             } else {
@@ -327,18 +390,29 @@ export class CombatDock extends HandlebarsApplication {
     // active, defer that reorder until the 3D dice finish so a "Roll All" doesn't spoil the
     // animated results; without DSN there are no dice to wait for, so reorder immediately.
     _scheduleInitiativeReorder() {
-        if (!game.dice3d) return this.setupCombatants();
+        if (!game.dice3d) {
+            // No dice to wait for — but another updateCombatant handler in this same tick
+            // may still take a reveal hold, and hook order is not ours to control. Yield one
+            // turn of the event loop first so those handlers get to speak; the flush then
+            // honours whatever hold they took.
+            this._scheduleInitReorderFlush(0);
+            return;
+        }
         if (!this._initReorderSince) this._initReorderSince = Date.now();
         this._scheduleInitReorderFlush();
     }
 
-    _scheduleInitReorderFlush() {
+    _scheduleInitReorderFlush(delay = INIT_REORDER_SETTLE_MS) {
         if (this._initReorderTimer) clearTimeout(this._initReorderTimer);
-        this._initReorderTimer = setTimeout(() => this._flushInitiativeReorder(), INIT_REORDER_SETTLE_MS);
+        this._initReorderTimer = setTimeout(() => this._flushInitiativeReorder(), delay);
     }
 
     _flushInitiativeReorder() {
         this._initReorderTimer = null;
+        // An external decision is still open (holdInitiativeReveal) → keep both the numbers
+        // and the order back. No reschedule: releasing the last hold schedules the flush,
+        // and every hold carries an expiry, so this cannot wedge.
+        if (this._initiativeRevealHolds.size) return;
         // Dice still animating (within the guard window) → wait for the next completion.
         if (this._diceAnimations > 0 && Date.now() - this._initReorderSince < INIT_REORDER_MAX_WAIT_MS) {
             this._scheduleInitReorderFlush();
