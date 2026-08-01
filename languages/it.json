@@ -6,7 +6,9 @@
       "close": "Chiudi"
     },
     "contextMenu": {
-      "setAsCurrent": "Imposta come combattente attuale"
+      "setAsCurrent": "Imposta come combattente attuale",
+      "revertMovement": "Annulla movimento (torna all'inizio)",
+      "revertMovementDone": "{name} è tornato al punto in cui è iniziato il suo movimento."
     },
     "controls": {
       "deleteEncounter": "Elimina incontro",

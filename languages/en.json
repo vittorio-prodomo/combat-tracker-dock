@@ -6,7 +6,9 @@
             "close": "Close"
         },
         "contextMenu": {
-            "setAsCurrent": "Set as current combatant"
+            "setAsCurrent": "Set as current combatant",
+            "revertMovement": "Revert movement (back to start)",
+            "revertMovementDone": "Reverted {name} to where its movement began."
         },
         "controls": {
             "deleteEncounter": "Delete Encounter",

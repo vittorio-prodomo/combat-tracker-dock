@@ -559,6 +559,38 @@ export class CombatDock extends HandlebarsApplication {
                         this.combat.update({ turn: this.sortedCombatants.indexOf(this.combat.combatants.get(el.dataset.combatantId)) });
                     },
                 },
+                // Core's own "Clear Movement History" entry (spread in below) erases the trail but leaves the
+                // token where it stopped. This one also puts it back where the turn started, for the player who
+                // walked a route and changed their mind.
+                //
+                // It calls a DIFFERENT core method on purpose. Core clears movement history in two places of its
+                // own -- at the start of every combatant's turn (Combat#_clearMovementHistoryOnStartTurn) and when
+                // a combatant leaves a combat (Combat#_clearMovementHistoryOnExit) -- and BOTH go through
+                // TokenDocument#clearMovementHistory. Teleporting by wrapping that primitive would therefore have
+                // yanked tokens backwards on every turn change. TokenDocument#revertRecordedMovement is a separate,
+                // caller-less core API that rolls the token back to movementHistory[0] and empties the history in
+                // one update (isUndo, so the rollback records no new waypoints; animate:false, so it snaps).
+                //
+                // NOTE it also restores width/height/shape, and it undoes FORCED movement (a push, a Rideable
+                // drag) because those are recorded waypoints like any other.
+                {
+                    condition: (el) =>
+                        game.user.isGM &&
+                        this.combat?.combatants.get(el.dataset.combatantId)?.token?.movementHistory.length > 0,
+                    name: `${MODULE_ID}.contextMenu.revertMovement`,
+                    icon: `<i class="fas fa-route"></i>`,
+                    callback: async (el) => {
+                        const combatant = this.combat?.combatants.get(el.dataset.combatantId);
+                        const token = combatant?.token;
+                        if (!token) return;
+                        const reverted = await token.revertRecordedMovement();
+                        if (reverted) {
+                            ui.notifications.info(
+                                game.i18n.format(`${MODULE_ID}.contextMenu.revertMovementDone`, { name: token.name })
+                            );
+                        }
+                    },
+                },
                 ...game.combats.directory._getEntryContextOptions(),
             ],
             { jQuery: false, fixed: true }
