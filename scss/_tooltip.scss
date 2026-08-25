@@ -7,7 +7,8 @@
     & .combat-dock-tooltip-wrapper{   
 
         border-radius: 0px;
-        padding: 1rem ;
+        // T135: the entries were crammed; give the box and the rows breathing room.
+        padding: 1.25rem;
         border-radius: var(--combatant-portrait-border-radius);
         
             font-family: 'Amiri';
@@ -79,7 +80,7 @@
             & li{
                 display: flex;
                 align-items: flex-end;
-                margin-bottom: 0.3rem;
+                margin-bottom: 0.6rem; // T135: was 0.3rem — rows were crammed
                 position: relative;
 
                 &.effects-list{

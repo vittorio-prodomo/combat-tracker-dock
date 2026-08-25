@@ -213,7 +213,99 @@ export class CombatantPortrait {
         if(ib) ib.style.backgroundImage = `url("${game.settings.get(MODULE_ID, "portraitImageBorder")}")`;
         this.activateListeners();
         if (game.user.isGM) this._activateInitiativeEditor();
+        if (game.user.isGM) this._activateResourceEditors();
         this.resolve(true);
+    }
+
+    /**
+     * T136: GM click-to-edit for the tracked-resource numbers (HP on this world's dock) —
+     * sibling of the initiative editor above, same visual/commit contract. Each visible
+     * tracked-attribute text edits the attribute it displays. A leading + or - applies a
+     * delta with token-bar clamping ([0, max] when a max exists); a bare number sets the
+     * value outright (the system's own data model may clamp further, e.g. dnd5e HP to max).
+     */
+    _activateResourceEditors() {
+        if (this.isEvent || !this.actor) return;
+        this.element.querySelectorAll(".tracked-attribute-text-container").forEach((container) => {
+            const textEl = container.querySelector(".tracked-attribute-text-value");
+            if (!textEl) return;
+            const secondary = textEl.classList.contains("secondary-attribute");
+            const attribute = secondary ? game.settings.get(MODULE_ID, "resource") : this.combat?.settings?.resource;
+            if (!attribute) return;
+            // Same resolution as getResource: the attribute holds the number directly or in .value.
+            const direct = foundry.utils.getProperty(this.actor.system, attribute);
+            const path = Number.isNumeric(direct) ? attribute : attribute + ".value";
+            if (!Number.isNumeric(foundry.utils.getProperty(this.actor.system, path))) return;
+            container.style.cursor = "pointer";
+            // The bottom UI strip is pointer-events:none (clicks pan through to the wrapper);
+            // re-enable just this number for the GM, exactly like the initiative badge.
+            container.style.pointerEvents = "all";
+            container.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (container.querySelector("input.tracked-attribute-input")) return;
+                const current = foundry.utils.getProperty(this.actor.system, path);
+                const max = foundry.utils.getProperty(this.actor.system, attribute + ".max")
+                    ?? foundry.utils.getProperty(this.actor.system, attribute.replace("value", "") + "max");
+                const input = document.createElement("input");
+                input.type = "text";
+                input.inputMode = "numeric";
+                input.value = current ?? "";
+                input.classList.add("tracked-attribute-input");
+                // Same readability trick as the initiative editor: solid bg contrasting the text.
+                const textColor = getComputedStyle(textEl).color;
+                const rgb = (textColor.match(/\d+/g) || [255, 255, 255]).map(Number);
+                const luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+                Object.assign(input.style, {
+                    width: "3em",
+                    textAlign: "center",
+                    font: "inherit",
+                    color: textColor,
+                    background: luminance > 140 ? "#000" : "#fff",
+                    border: "1px solid var(--color-border-light-1, #999)",
+                    borderRadius: "3px",
+                    padding: "0",
+                });
+                textEl.style.display = "none";
+                container.insertBefore(input, container.firstChild); // keep "/ max" visible behind it
+                input.focus();
+                input.select();
+                let done = false;
+                const restore = () => {
+                    if (input.isConnected) input.remove();
+                    textEl.style.display = "";
+                };
+                const commit = async () => {
+                    if (done) return;
+                    done = true;
+                    const raw = input.value.trim();
+                    if (raw === "") return restore();
+                    const isDelta = /^[+-]/.test(raw);
+                    let value = Number(raw);
+                    if (Number.isNaN(value)) return restore();
+                    if (isDelta) {
+                        value = current + value;
+                        if (Number.isNumeric(max)) value = Math.min(Math.max(value, 0), Number(max));
+                    }
+                    if (value === current) return restore();
+                    await this.actor.update({ [`system.${path}`]: value });
+                    restore(); // the actor-update hook re-renders this portrait; this is a safety net
+                };
+                input.addEventListener("keydown", (event) => {
+                    event.stopPropagation();
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        commit();
+                    } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        done = true;
+                        restore();
+                    }
+                });
+                input.addEventListener("click", (event) => event.stopPropagation());
+                input.addEventListener("blur", () => commit());
+            });
+        });
     }
 
     _activateInitiativeEditor() {
