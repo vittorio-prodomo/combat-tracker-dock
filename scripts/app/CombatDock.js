@@ -10,15 +10,19 @@ const INIT_REORDER_SETTLE_MS = 500;
 const INIT_REORDER_MAX_WAIT_MS = 8000;
 
 // T44b: hide the Primal Companion beast's portrait from the dock (GM + players alike). The beast stays a
-// real combatant — its 'follows' initiative slot is what preserves CPR's charge rider (movementHistory) —
-// but the CPR fork auto-resolves and skips its turn, so it should never appear in the carousel. Detect it
-// structurally (a chris-premades summon carrying the Primal Companion Dodge/Strike item) so CCT needs no
-// hard dependency on the CPR module; no-ops for every other combatant, including other summons.
-const PRIMAL_BEAST_ITEM_IDS = ["primalCompanionDodge", "primalCompanionLandBeastsStrike", "primalCompanionSeaBeastsStrike", "primalCompanionSkyBeastsStrike"];
+// real combatant — its 'follows' initiative slot is what preserves the charge rider (movementHistory) —
+// but the dnd5e-primal-companion module auto-resolves and skips its turn, so it should never appear in the
+// carousel. Rebuilt on dnd5e's native summon (T9 of the primal-companion-native plan): detected structurally
+// via `flags.dnd5e.summon.origin` resolving (fromUuidSync) to an item whose `identifier` is
+// "primal-companion" — no dependency on chris-premades flags, which the native beast no longer carries.
+// A stale/unresolvable origin uuid makes fromUuidSync return null; that reads as "not a primal beast", never
+// throws. No-ops for every other combatant, including other (CPR or native) summons.
 function isPrimalCompanionBeast(combatant) {
     const actor = combatant?.actor;
-    if (!actor?.flags?.["chris-premades"]?.summons?.control?.actor) return false;
-    return actor.items.some((i) => PRIMAL_BEAST_ITEM_IDS.includes(i.flags?.["chris-premades"]?.info?.identifier));
+    const originUuid = actor?.flags?.dnd5e?.summon?.origin;
+    if (!originUuid) return false;
+    const originItem = fromUuidSync(originUuid);
+    return originItem?.identifier === "primal-companion";
 }
 
 export class CombatDock extends HandlebarsApplication {
