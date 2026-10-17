@@ -1,6 +1,17 @@
 import { MODULE_ID } from "../main.js";
 import { generateDescription, getACDisplay, getInitiativeDisplay, getSystemIcons } from "../systems.js";
 
+/**
+ * Whose numbers a player may see when foes' are hidden: actors they own or observe, the party
+ * (Always Show Player Info), and anyone on the friendly side — the line firstTurnHidden already draws.
+ * Hostile, neutral and secret dispositions are foes. Shared by the dock and the sidebar tracker.
+ */
+export function isAllyOfViewer(combatant) {
+    const playerPlayerPermission = combatant.actor?.hasPlayerOwner && game.settings.get(MODULE_ID, "playerPlayerPermission");
+    const hasPermission = (combatant.actor?.permission ?? -10) >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER || combatant.isOwner || playerPlayerPermission;
+    return hasPermission || combatant.token?.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+}
+
 export class CombatantPortrait {
     constructor(combatant) {
         this.combatant = combatant;
@@ -440,6 +451,10 @@ export class CombatantPortrait {
         return hasPermission;
     }
 
+    get isAllyOfViewer() {
+        return isAllyOfViewer(this.combatant);
+    }
+
     async getData() {
         // Format information about each combatant in the encounter
         let hasDecimals = false;
@@ -548,7 +563,7 @@ export class CombatantPortrait {
         const precision = CONFIG.Combat.initiative.decimals;
         if (turn.hasRolled && typeof turn.initiative == "number") turn.initiative = turn.initiative.toFixed(hasDecimals ? precision : 0);
         if (turn.hasRolled && typeof turn.initiativeData.value == "number") turn.initiativeData.value = turn.initiativeData.value.toFixed(hasDecimals ? precision : 0);
-        if (!game.user.isGM && !combatant.actor?.isOwner && game.settings.get(MODULE_ID, "hideEnemyInitiative")) {
+        if (!game.user.isGM && !this.isAllyOfViewer && game.settings.get(MODULE_ID, "hideEnemyInitiative")) {
             turn.initiative = "?";
             turn.initiativeData.value = "?";
         }
@@ -563,9 +578,9 @@ export class CombatantPortrait {
         }
         // T36: enemy-AC disclosure follows dnd5e's own attackRollVisibility world setting
         // (the same source that decides whether players see target AC in attack cards):
-        // only "all" reveals the number to a non-owner non-GM; GM and owners always see it.
-        // Non-dnd5e systems have no such setting, so non-owners get "?" there.
-        if (turn.ac && !game.user.isGM && !combatant.actor?.isOwner) {
+        // only "all" reveals a FOE's number to a player; the GM and the viewer's allies always show it.
+        // Non-dnd5e systems have no such setting, so foes get "?" there.
+        if (turn.ac && !game.user.isGM && !this.isAllyOfViewer) {
             let visibility = "none";
             if (game.system.id === "dnd5e") {
                 try { visibility = game.settings.get("dnd5e", "attackRollVisibility"); } catch (e) {}
