@@ -1,7 +1,7 @@
 import { initConfig } from './config.js';
 import {registerSettings} from './settings.js';
 import {CombatDock} from './app/CombatDock.js';
-import {CombatantPortrait} from './app/CombatantPortrait.js';
+import {CombatantPortrait, isAllyOfViewer} from './app/CombatantPortrait.js';
 import {defaultAttributesConfig, generateDescription} from './systems.js';
 import { showWelcome } from './lib/welcome.js';
 import "../scss/module.scss";
@@ -71,6 +71,21 @@ Hooks.on('canvasReady', () => {
     })
 });
 
+
+// "Hide Enemy Initiative" covers the core sidebar tracker too — otherwise a player opens the Combat tab and
+// reads every foe's number there. Same ally line as the portraits.
+Hooks.on("renderCombatTracker", (app, html) => {
+    if (game.user.isGM || !game.settings.get(MODULE_ID, "hideEnemyInitiative")) return;
+    const combat = app.viewed;
+    if (!combat) return;
+    for (const row of html.querySelectorAll("[data-combatant-id]")) {
+        const combatant = combat.combatants.get(row.dataset.combatantId);
+        if (!combatant || combatant.initiative === null || isAllyOfViewer(combatant)) continue;
+        const cell = row.querySelector(".token-initiative");
+        cell?.querySelectorAll("span").forEach((span) => (span.textContent = "?"));
+        cell?.querySelectorAll("input.initiative-input").forEach((input) => (input.value = "?"));
+    }
+});
 
 function registerWrappers() {
     if (!game.modules.get("lib-wrapper")?.active) return;
