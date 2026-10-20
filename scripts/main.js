@@ -38,6 +38,8 @@ Hooks.once('init', function () {
 Hooks.on('ready', () => {
     registerSettings();
     initConfig();
+    // The sidebar tracker first renders before "ready", when the hook below must skip (no settings yet) — redo it.
+    if (!game.user.isGM && ui.combat.viewed) ui.combat.render();
     const currentCombat = getCurrentCombat();
     if(currentCombat && !ui.combatDock && game.settings.get("core", "noCanvas")) {
         new CONFIG.combatTrackerDock.CombatDock(currentCombat).render(true);
@@ -73,9 +75,10 @@ Hooks.on('canvasReady', () => {
 
 
 // "Hide Enemy Initiative" covers the core sidebar tracker too — otherwise a player opens the Combat tab and
-// reads every foe's number there. Same ally line as the portraits.
+// reads every foe's number there. Same ally line as the portraits. Core renders the tracker before "ready", where
+// this module registers its settings, so that first render is skipped and redone in the ready hook above.
 Hooks.on("renderCombatTracker", (app, html) => {
-    if (game.user.isGM || !game.settings.get(MODULE_ID, "hideEnemyInitiative")) return;
+    if (game.user.isGM || !game.ready || !game.settings.get(MODULE_ID, "hideEnemyInitiative")) return;
     const combat = app.viewed;
     if (!combat) return;
     for (const row of html.querySelectorAll("[data-combatant-id]")) {
